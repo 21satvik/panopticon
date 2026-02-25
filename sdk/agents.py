@@ -1,6 +1,6 @@
 import yfinance as yf
 from groq import Groq
-from sdk.telemetry import observe
+from telemetry import observe
 import os
 
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))

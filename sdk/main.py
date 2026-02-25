@@ -1,5 +1,5 @@
 import asyncio
-from sdk.agents import retrieval_agent, analysis_agent
+from agents import retrieval_agent, analysis_agent
 import uuid
 
 

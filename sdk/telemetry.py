@@ -81,7 +81,7 @@ def observe(agent_name: str):
                 "guardrail_reasoning": judgment["reasoning"]
             }
 
-            asyncio.create_task(ship_telemetry(payload))
+            await ship_telemetry(payload)
             return response
 
         return wrapper
