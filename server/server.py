@@ -12,7 +12,7 @@ app = FastAPI()
 conn = psycopg2.connect(
     dbname="panopticon",
     user="postgres",
-    password=os.getenv("DB_PASSWORD", ""),
+    password=os.getenv("PGPASSWORD"),
     host="localhost"
 )
 
