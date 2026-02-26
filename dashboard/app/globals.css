@@ -35,3 +35,18 @@ body {
 }
 
 .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+.drawer-panel {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  height: 100vh !important;
+  width: 560px !important;
+  z-index: 9999 !important;
+}
+
+.drawer-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9998 !important;
+}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-const VM_URL = "http://130.162.162.122:8000";
+const VM_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 interface Stats {
   total_traces: number;
@@ -47,7 +47,7 @@ export default function MissionControl() {
   const blockRate = stats ? ((stats.guardrail_blocks / stats.total_traces) * 100).toFixed(1) : "0";
 
   return (
-    <main className="max-w-6xl mx-auto px-8 py-12 fade-in">
+    <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '48px 40px' }} className="fade-in">
 
       {/* Header */}
       <div className="mb-12">
@@ -57,7 +57,7 @@ export default function MissionControl() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-5 mb-12">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '40px', paddingLeft: '8px' }}>
         {[
           { label: "Total Traces", value: stats?.total_traces ?? "—", sub: "agent calls logged", accent: false },
           { label: "Guardrail Blocks", value: stats?.guardrail_blocks ?? "—", sub: `${blockRate}% block rate`, accent: true },
@@ -66,7 +66,7 @@ export default function MissionControl() {
         ].map((card) => (
           <div key={card.label} className="rounded-xl p-6 flex flex-col gap-4" style={{
             background: 'var(--surface)',
-            border: `1px solid ${card.accent ? 'var(--accent)' : 'var(--border)'}`,
+            border: `1px solid ${card.accent ? 'rgba(255,59,59,0.4)' : 'var(--border)'}`,
             boxShadow: card.accent ? '0 0 24px rgba(255,59,59,0.08)' : 'none'
           }}>
             <p className="mono text-xs uppercase tracking-widest" style={{ color: card.accent ? 'var(--accent)' : 'var(--text-muted)' }}>{card.label}</p>
