@@ -17,7 +17,13 @@ class AgentResponse:
 
 @observe(agent_name="retrieval_agent")
 async def retrieval_agent(prompt: str, session_id: str = None) -> AgentResponse:
-    ticker_map = {"apple": "AAPL", "nvidia": "NVDA", "microsoft": "MSFT", "tesla": "TSLA", "google": "GOOGL"}
+    ticker_map = {
+        "apple": "AAPL", "nvidia": "NVDA", "microsoft": "MSFT",
+        "tesla": "TSLA", "google": "GOOGL", "googl": "GOOGL",
+        "amazon": "AMZN", "meta": "META", "netflix": "NFLX",
+        "amd": "AMD", "intel": "INTC", "salesforce": "CRM",
+        "uber": "UBER", "airbnb": "ABNB", "spotify": "SPOT",
+    }
     
     ticker = None
     for name, symbol in ticker_map.items():
@@ -26,7 +32,10 @@ async def retrieval_agent(prompt: str, session_id: str = None) -> AgentResponse:
             break
     
     if not ticker:
-        ticker = "AAPL"
+        return AgentResponse(
+            text="I couldn't identify a company in your query. Try mentioning a company by name, e.g. 'Analyze Apple' or 'Research NVIDIA'.",
+            tokens=0
+        )
 
     stock = yf.Ticker(ticker)
     info = stock.info

@@ -1,25 +1,33 @@
-from fastapi import FastAPI
+import os
+import json
+import psycopg2
+from fastapi import FastAPI, HTTPException, Depends, Security
+from fastapi.security import APIKeyHeader
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import psycopg2
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = FastAPI()
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI()
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+API_KEY = os.getenv("INGEST_API_KEY", "")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def verify_api_key(key: str = Security(api_key_header)):
+    if API_KEY and key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+    return key
 
 conn = psycopg2.connect(
     dbname="panopticon",
@@ -41,7 +49,7 @@ class Trace(BaseModel):
     guardrail_reasoning: str
 
 @app.post("/ingest")
-def ingest(trace: Trace):
+def ingest(trace: Trace, _: str = Depends(verify_api_key)):
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO sessions (session_id) 
