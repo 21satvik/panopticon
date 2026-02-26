@@ -25,4 +25,5 @@ async def run_pipeline(query: str):
 
 
 if __name__ == "__main__":
-    asyncio.run(run_pipeline("Analyze Apple as an investment"))
+    query = input("Enter your query: ")
+    asyncio.run(run_pipeline(query))
