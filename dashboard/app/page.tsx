@@ -31,13 +31,11 @@ export default function MissionControl() {
     const statsJson = await statsRes.json();
     const tracesJson: Trace[] = await tracesRes.json();
     setStats(statsJson);
-
-    const chart = tracesJson.slice().reverse().map((t, i) => ({
+    setChartData(tracesJson.slice().reverse().map((t, i) => ({
       index: i + 1,
       tokens: t.tokens_used,
       latency: t.latency_ms,
-    }));
-    setChartData(chart);
+    })));
   };
 
   useEffect(() => {
@@ -49,55 +47,54 @@ export default function MissionControl() {
   const blockRate = stats ? ((stats.guardrail_blocks / stats.total_traces) * 100).toFixed(1) : "0";
 
   return (
-    <main className="p-8 fade-in">
-      <div className="mb-10">
-        <h1 className="mono text-3xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>Mission Control</h1>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Live telemetry — refreshes every 10s</p>
+    <main className="max-w-6xl mx-auto px-8 py-12 fade-in">
+
+      {/* Header */}
+      <div className="mb-12">
+        <p className="mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--accent)' }}>Live Pipeline</p>
+        <h1 className="mono text-4xl font-bold tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>Mission Control</h1>
+        <p className="text-base" style={{ color: 'var(--text-muted)' }}>Telemetry refreshes every 10 seconds</p>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-4 gap-5 mb-12">
         {[
-          { label: "Total Traces", value: stats?.total_traces ?? "—", sub: "agent calls logged" },
-          { label: "Guardrail Blocks", value: stats?.guardrail_blocks ?? "—", accent: true, sub: `${blockRate}% block rate` },
-          { label: "Avg Latency", value: stats ? `${stats.avg_latency_ms}ms` : "—", sub: "per agent call" },
-          { label: "Tokens Burned", value: stats?.total_tokens?.toLocaleString() ?? "—", sub: "total across all traces" },
+          { label: "Total Traces", value: stats?.total_traces ?? "—", sub: "agent calls logged", accent: false },
+          { label: "Guardrail Blocks", value: stats?.guardrail_blocks ?? "—", sub: `${blockRate}% block rate`, accent: true },
+          { label: "Avg Latency", value: stats ? `${stats.avg_latency_ms}ms` : "—", sub: "per agent call", accent: false },
+          { label: "Tokens Burned", value: stats?.total_tokens?.toLocaleString() ?? "—", sub: "cumulative total", accent: false },
         ].map((card) => (
-          <div key={card.label} className="p-6 rounded-lg border" style={{ background: 'var(--surface)', borderColor: card.accent ? 'var(--accent)' : 'var(--border)' }}>
-            <p className="mono text-xs uppercase tracking-widest mb-3" style={{ color: card.accent ? 'var(--accent)' : 'var(--text-muted)' }}>{card.label}</p>
-            <p className="mono text-4xl font-bold mb-1" style={{ color: card.accent ? 'var(--accent)' : 'var(--text-primary)' }}>{card.value}</p>
+          <div key={card.label} className="rounded-xl p-6 flex flex-col gap-4" style={{
+            background: 'var(--surface)',
+            border: `1px solid ${card.accent ? 'var(--accent)' : 'var(--border)'}`,
+            boxShadow: card.accent ? '0 0 24px rgba(255,59,59,0.08)' : 'none'
+          }}>
+            <p className="mono text-xs uppercase tracking-widest" style={{ color: card.accent ? 'var(--accent)' : 'var(--text-muted)' }}>{card.label}</p>
+            <p className="mono font-bold leading-none" style={{ fontSize: '2.5rem', color: card.accent ? 'var(--accent)' : 'var(--text-primary)' }}>{card.value}</p>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{card.sub}</p>
           </div>
         ))}
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-6 rounded-lg border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <p className="mono text-xs uppercase tracking-widest mb-6" style={{ color: 'var(--text-muted)' }}>Token Burn per Call</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
-              <XAxis dataKey="index" stroke="#333" tick={{ fill: '#555', fontSize: 11 }} />
-              <YAxis stroke="#333" tick={{ fill: '#555', fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 6, color: '#f0f0f0', fontFamily: 'Space Mono' }} />
-              <Line type="monotone" dataKey="tokens" stroke="#00ff88" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="p-6 rounded-lg border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <p className="mono text-xs uppercase tracking-widest mb-6" style={{ color: 'var(--text-muted)' }}>Latency per Call (ms)</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
-              <XAxis dataKey="index" stroke="#333" tick={{ fill: '#555', fontSize: 11 }} />
-              <YAxis stroke="#333" tick={{ fill: '#555', fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 6, color: '#f0f0f0', fontFamily: 'Space Mono' }} />
-              <Line type="monotone" dataKey="latency" stroke="#ff3b3b" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="grid grid-cols-2 gap-5">
+        {[
+          { title: "Token Burn", key: "tokens", color: "#00ff88" },
+          { title: "Latency (ms)", key: "latency", color: "#ff3b3b" },
+        ].map(({ title, key, color }) => (
+          <div key={title} className="rounded-xl p-7" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <p className="mono text-xs uppercase tracking-widest mb-8" style={{ color: 'var(--text-muted)' }}>{title}</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                <XAxis dataKey="index" stroke="#222" tick={{ fill: '#444', fontSize: 10, fontFamily: 'Space Mono' }} />
+                <YAxis stroke="#222" tick={{ fill: '#444', fontSize: 10, fontFamily: 'Space Mono' }} />
+                <Tooltip contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, color: '#f0f0f0', fontFamily: 'Space Mono', fontSize: 12 }} />
+                <Line type="monotone" dataKey={key} stroke={color} strokeWidth={2} dot={{ fill: color, r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ))}
       </div>
     </main>
   );

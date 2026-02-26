@@ -78,7 +78,7 @@ export default function TracesPage() {
 
       {/* Trace Drawer */}
       <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>
-        <SheetContent className="w-[600px] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <SheetContent side="right" className="w-[580px] overflow-y-auto border-l" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           {selected && (
             <>
               <SheetHeader className="mb-6">
