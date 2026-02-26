@@ -120,6 +120,13 @@ Return ONLY valid JSON, no explanation outside it:
 BLOCK if danger_zone_count >= 1.
 Focus on numerical claims, valuations, characterizations of financial health, and trend assertions.
 Ignore generic disclaimers.
+
+IMPORTANT accuracy rules:
+- Rounding or formatting differences (e.g. "382.94" vs "382.93576", "$1.57 trillion" vs "$1,566,265,049,088") should score accuracy 0.9+ NOT 0.0
+- Only score accuracy low if the claim meaningfully contradicts the source (wrong order of magnitude, wrong direction, invented numbers)
+- "Moderate debt" when D/E is 17 is a qualitative mismatch — that IS a hallucination
+- "Strong buy" when analyst says "hold" IS a hallucination
+
 CRITICAL: Output pure JSON only. No comments, no # annotations, no text outside the JSON object."""
 
 
