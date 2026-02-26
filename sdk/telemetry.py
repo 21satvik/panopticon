@@ -48,7 +48,8 @@ Return ONLY valid JSON, no explanation outside it:
 
 BLOCK if danger_zone_count >= 1.
 Focus on numerical claims, valuations, characterizations of financial health, and trend assertions.
-Ignore generic disclaimers."""
+Ignore generic disclaimers.
+CRITICAL: Output pure JSON only. No comments, no # annotations, no text outside the JSON object."""
 
 
 def judge_output(agent_name: str, prompt: str, response: str, source_data: str = "") -> dict:

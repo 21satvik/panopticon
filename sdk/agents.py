@@ -1,123 +1,103 @@
-import time
-import uuid
-import json
-import httpx
-import asyncio
-from functools import wraps
+import yfinance as yf
 from groq import Groq
-from dotenv import load_dotenv
+from telemetry import observe
 import os
 
-load_dotenv()
-
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-INGESTION_URL = os.getenv("INGESTION_URL")
-INGEST_API_KEY = os.getenv("INGEST_API_KEY", "")
 
-JUDGE_SYSTEM_PROMPT = """You are a financial AI hallucination auditor.
 
-You are given:
-1. SOURCE DATA — real market data pulled from yfinance (ground truth)
-2. AI RESPONSE — what the language model said
+class AgentResponse:
+    def __init__(self, text: str, tokens: int, source_data: str = ""):
+        self.text = text
+        self._tokens_used = tokens
+        self._source_data = source_data  # ground truth passed to judge
 
-Your job: extract every factual claim the AI made and audit each one.
+    def __str__(self):
+        return self.text
 
-For each claim score:
-- confidence: how assertively did the model state this? (0.0 = heavily hedged, 1.0 = stated as absolute fact)
-- accuracy: is this actually supported by the source data? (0.0 = contradicts source, 1.0 = fully supported)
 
-DANGER ZONE = confidence > 0.7 AND accuracy < 0.4
-This means: the model stated something confidently that the data does not support. That is a hallucination.
-
-Return ONLY valid JSON, no explanation outside it:
-{
-  "overall_status": "PASS" or "BLOCK",
-  "overall_score": 0.0,
-  "overall_reasoning": "one sentence summary",
-  "claims": [
-    {
-      "text": "exact claim the model made",
-      "confidence": 0.0,
-      "accuracy": 0.0,
-      "supported": true,
-      "issue": null
+@observe(agent_name="retrieval_agent")
+async def retrieval_agent(prompt: str, session_id: str = None) -> AgentResponse:
+    ticker_map = {
+        "apple": "AAPL", "nvidia": "NVDA", "microsoft": "MSFT",
+        "tesla": "TSLA", "google": "GOOGL", "googl": "GOOGL",
+        "amazon": "AMZN", "meta": "META", "netflix": "NFLX",
+        "amd": "AMD", "intel": "INTC", "salesforce": "CRM",
+        "uber": "UBER", "airbnb": "ABNB", "spotify": "SPOT",
     }
-  ],
-  "danger_zone_count": 0
-}
 
-BLOCK if danger_zone_count >= 1.
-Focus on numerical claims, valuations, characterizations of financial health, and trend assertions.
-Ignore generic disclaimers."""
+    ticker = None
+    for name, symbol in ticker_map.items():
+        if name in prompt.lower():
+            ticker = symbol
+            break
 
+    if not ticker:
+        return AgentResponse(
+            text="I couldn't identify a company in your query. Try mentioning a company by name, e.g. 'Analyze Apple' or 'Research NVIDIA'.",
+            tokens=0
+        )
 
-def judge_output(agent_name: str, prompt: str, response: str, source_data: str = "") -> dict:
-    user_content = f"PROMPT: {prompt}\n\nSOURCE DATA (ground truth):\n{source_data}\n\nAI RESPONSE:\n{response}"
+    stock = yf.Ticker(ticker)
+    info = stock.info
+
+    # Raw ground truth — passed to judge for hallucination detection
+    source_data = f"""
+    Company: {info.get('longName', ticker)}
+    Sector: {info.get('sector', 'N/A')}
+    Current Price: ${info.get('currentPrice', 'N/A')}
+    Market Cap: ${info.get('marketCap', 'N/A'):,}
+    P/E Ratio: {info.get('trailingPE', 'N/A')}
+    Forward P/E: {info.get('forwardPE', 'N/A')}
+    Revenue: ${info.get('totalRevenue', 'N/A'):,}
+    Gross Margins: {info.get('grossMargins', 'N/A')}
+    Profit Margins: {info.get('profitMargins', 'N/A')}
+    52 Week High: ${info.get('fiftyTwoWeekHigh', 'N/A')}
+    52 Week Low: ${info.get('fiftyTwoWeekLow', 'N/A')}
+    50 Day Average: ${info.get('fiftyDayAverage', 'N/A')}
+    200 Day Average: ${info.get('twoHundredDayAverage', 'N/A')}
+    Debt to Equity: {info.get('debtToEquity', 'N/A')}
+    Return on Equity: {info.get('returnOnEquity', 'N/A')}
+    Free Cashflow: ${info.get('freeCashflow', 'N/A')}
+    Analyst Recommendation: {info.get('recommendationKey', 'N/A')}
+    Beta: {info.get('beta', 'N/A')}
+    """.strip()
 
     result = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content}
-        ],
-        response_format={"type": "json_object"}
+            {"role": "system", "content": "You are a financial data retrieval agent. Summarize the provided company data clearly and concisely for analysis."},
+            {"role": "user", "content": f"Query: {prompt}\n\nRaw Data:\n{source_data}"}
+        ]
     )
-    try:
-        return json.loads(result.choices[0].message.content)
-    except json.JSONDecodeError:
-        return {
-            "overall_status": "PASS",
-            "overall_score": 0.0,
-            "overall_reasoning": "Judge returned malformed JSON — defaulting to PASS.",
-            "claims": [],
-            "danger_zone_count": 0
-        }
+
+    return AgentResponse(
+        text=result.choices[0].message.content,
+        tokens=result.usage.total_tokens,
+        source_data=source_data  # carry ground truth through
+    )
 
 
-async def ship_telemetry(payload: dict):
-    headers = {"X-API-Key": INGEST_API_KEY} if INGEST_API_KEY else {}
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.post(INGESTION_URL, json=payload, headers=headers, timeout=5.0)
-        except Exception:
-            pass  # never let telemetry crash your app
+@observe(agent_name="analysis_agent")
+async def analysis_agent(prompt: str, session_id: str = None, context: str = "", source_data: str = "") -> AgentResponse:
+    result = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": """You are a financial analysis agent.
+Generate a structured investment brief with these sections:
+- Executive Summary
+- Key Strengths
+- Key Risks
+- Financial Health
+- Conclusion
 
+Always include a disclaimer that this is not financial advice."""},
+            {"role": "user", "content": f"Query: {prompt}\n\nContext:\n{context}"}
+        ]
+    )
 
-def observe(agent_name: str):
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            trace_id = str(uuid.uuid4())
-            session_id = kwargs.get("session_id", str(uuid.uuid4()))
-            prompt = kwargs.get("prompt", str(args[0]) if args else "")
-
-            start = time.time()
-            response = await func(*args, **kwargs)
-            latency_ms = round((time.time() - start) * 1000)
-
-            tokens_used = getattr(response, "_tokens_used", 0)
-            response_text = getattr(response, "text", str(response))
-            source_data = getattr(response, "_source_data", "")
-
-            judgment = judge_output(agent_name, prompt, response_text, source_data)
-
-            payload = {
-                "trace_id": trace_id,
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "prompt": prompt,
-                "response": response_text,
-                "tokens_used": tokens_used,
-                "latency_ms": latency_ms,
-                "guardrail_status": judgment.get("overall_status", "PASS"),
-                "guardrail_score": judgment.get("overall_score", 0.0),
-                "guardrail_reasoning": judgment.get("overall_reasoning", ""),
-                "claims": judgment.get("claims", []),
-                "danger_zone_count": judgment.get("danger_zone_count", 0),
-            }
-
-            await ship_telemetry(payload)
-            return response
-
-        return wrapper
-    return decorator
+    return AgentResponse(
+        text=result.choices[0].message.content,
+        tokens=result.usage.total_tokens,
+        source_data=source_data  # pass through for judge
+    )
