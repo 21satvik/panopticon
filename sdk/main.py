@@ -16,7 +16,8 @@ async def run_pipeline(query: str):
     analysis_result = await analysis_agent(
         prompt=query,
         session_id=session_id,
-        context=retrieval_result.text
+        context=retrieval_result.text,
+        source_data=retrieval_result._source_data  # pass ground truth to analysis judge
     )
     print(analysis_result.text[:200])
 
