@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --surface: #111111;
+  --surface-2: #1a1a1a;
+  --border: #222222;
+  --accent: #ff3b3b;
+  --accent-green: #00ff88;
+  --text-primary: #f0f0f0;
+  --text-muted: #555555;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.mono { font-family: 'Space Mono', monospace; }
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.pulse-red { animation: pulse-red 2s infinite; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.4s ease forwards; }
